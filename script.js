@@ -11,13 +11,28 @@ const starterProducts = [
  {id:5,name:'Laundry Soap',barcode:'4801000000015',category:'Household',price:28,qty:18,limit:5,expiry:''},
  {id:6,name:'Milk Drink',barcode:'4801000000016',category:'Beverages',price:25,qty:0,limit:5,expiry:'2026-11-29'}
 ];
-let products = JSON.parse(localStorage.getItem('sf_products') || 'null') || starterProducts;
-let history = JSON.parse(localStorage.getItem('sf_history') || 'null') || [
+// Safe browser storage: corrupted old data must never stop the login screen.
+function readStorageJSON(key, fallback){
+ try {
+  const raw=localStorage.getItem(key);
+  if(raw===null || raw==='') return fallback;
+  const value=JSON.parse(raw);
+  return value===null || value===undefined ? fallback : value;
+ } catch(error) {
+  console.warn('Invalid saved data for '+key+'; using defaults.', error);
+  return fallback;
+ }
+}
+let products = readStorageJSON('sf_products', null);
+if(!Array.isArray(products)) products=starterProducts;
+let history = readStorageJSON('sf_history', null);
+if(!Array.isArray(history)) history = [
  {product:'Bottled Water',action:'Stock In',qty:20,user:'Admin Owner',date:dateTime()},
  {product:'Potato Chips',action:'Stock Out',qty:5,user:'Admin Owner',date:dateTime()},
  {product:'Instant Noodles',action:'Added',qty:24,user:'Admin Owner',date:dateTime()}
 ];
-let sales = JSON.parse(localStorage.getItem('sf_sales') || '[]');
+let sales = readStorageJSON('sf_sales', []);
+if(!Array.isArray(sales)) sales=[];
 let cart = [];
 let currentRole = 'owner';
 let scannerStream = null, scanTimer = null;
@@ -187,12 +202,13 @@ window.addEventListener('resize',()=>{if(window.innerWidth>760)setMobileMenu(fal
 const AUTH_USERS_KEY = 'sf_demo_users';
 const AUTH_SESSION_KEY = 'sf_demo_session';
 function getUsers(){
- try {
-  const parsed=JSON.parse(localStorage.getItem(AUTH_USERS_KEY)||'[]');
-  return Array.isArray(parsed)?parsed.filter(u=>u&&typeof u==='object'):[];
- } catch(error) { return []; }
+ const parsed=readStorageJSON(AUTH_USERS_KEY, []);
+ return Array.isArray(parsed)?parsed.filter(u=>u&&typeof u==='object'&&u.email):[];
 }
-function saveUsers(users){localStorage.setItem(AUTH_USERS_KEY,JSON.stringify(users));}
+function saveUsers(users){
+ try { localStorage.setItem(AUTH_USERS_KEY,JSON.stringify(users)); return true; }
+ catch(error) { console.error('Could not save accounts',error); return false; }
+}
 function showAuthMessage(message,type='error'){
  const box=$('authMessage');
  if(!box)return;
@@ -255,7 +271,7 @@ $('loginForm').addEventListener('submit',e=>{
  e.preventDefault(); clearAuthMessage();
  const email=$('loginEmail').value.trim().toLowerCase();
  const password=$('loginPassword').value;
- const user=getUsers().find(u=>String(u.email||'').trim().toLowerCase()===email && String(u.password||'')===password);
+ const user=getUsers().find(u=>String(u.email||'').trim().toLowerCase()===email && String(u.password??'')===password);
  if(!user){showAuthMessage('Hindi makita ang account. Tingnan ang email at password, o mag-register muna.');return;}
  try { localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({email:user.email})); }
  catch(error){showAuthMessage('Hindi ma-save ang login session. I-enable ang browser storage at subukan ulit.');return;}
@@ -277,7 +293,7 @@ $('registerForm').addEventListener('submit',e=>{
  const user={name,email,password,role:users.length===0?'owner':'cashier',createdAt:new Date().toISOString()};
  try {
   users.push(user);
-  saveUsers(users);
+  if(!saveUsers(users)) { showAuthMessage('Hindi ma-save ang account. I-enable ang browser storage at subukan ulit.'); return; }
   localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({email}));
  } catch(error){showAuthMessage('Hindi ma-save ang account. Baka puno o naka-block ang browser storage. Subukan sa normal browser window.');return;}
  $('registerForm').reset();
@@ -286,7 +302,7 @@ $('registerForm').addEventListener('submit',e=>{
 (function restoreSession(){
  $('appShell').style.display='none';
  let session=null;
- try{session=JSON.parse(localStorage.getItem(AUTH_SESSION_KEY)||'null');}catch(error){localStorage.removeItem(AUTH_SESSION_KEY);}
+ try{session=readStorageJSON(AUTH_SESSION_KEY,null);}catch(error){session=null;}
  const user=session&&getUsers().find(u=>String(u.email||'').trim().toLowerCase()===String(session.email||'').trim().toLowerCase());
  if(user)openApp(user);
  else{$('authScreen').classList.remove('hidden');showAuthMode('login');}
