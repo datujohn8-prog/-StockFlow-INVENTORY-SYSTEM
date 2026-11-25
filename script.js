@@ -197,32 +197,31 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){setMobileMenu(false
 window.addEventListener('resize',()=>{if(window.innerWidth>760)setMobileMenu(false);});
 
 
-// Simple browser-only demo authentication. For production, use server-side
-// authentication (e.g. PHP + MySQL) and never store passwords in localStorage.
+// Browser-only demo authentication. Use guarded storage so blocked/corrupt browser
+// storage cannot silently break the Register or Log in screen.
 const AUTH_USERS_KEY = 'sf_demo_users';
 const AUTH_SESSION_KEY = 'sf_demo_session';
+function safeStorageGet(key){try{return localStorage.getItem(key);}catch(error){console.warn('Storage read failed',error);return null;}}
+function safeStorageSet(key,value){try{localStorage.setItem(key,value);return true;}catch(error){console.error('Storage write failed',error);return false;}}
 function getUsers(){
- const parsed=readStorageJSON(AUTH_USERS_KEY, []);
- return Array.isArray(parsed)?parsed.filter(u=>u&&typeof u==='object'&&u.email):[];
+ const raw=safeStorageGet(AUTH_USERS_KEY);
+ if(!raw)return [];
+ try{
+  const parsed=JSON.parse(raw);
+  if(!Array.isArray(parsed))return [];
+  return parsed.filter(u=>u&&typeof u==='object'&&typeof u.email==='string'&&u.email.trim());
+ }catch(error){console.warn('Resetting invalid saved accounts',error);return [];}
 }
-function saveUsers(users){
- try { localStorage.setItem(AUTH_USERS_KEY,JSON.stringify(users)); return true; }
- catch(error) { console.error('Could not save accounts',error); return false; }
-}
+function saveUsers(users){return safeStorageSet(AUTH_USERS_KEY,JSON.stringify(users));}
 function showAuthMessage(message,type='error'){
- const box=$('authMessage');
- if(!box)return;
- box.textContent=message;
- box.className='auth-message '+(type==='success'?'success':'error');
- box.style.display='block';
+ const box=$('authMessage');if(!box)return;
+ box.textContent=message;box.className='auth-message '+(type==='success'?'success':'error');box.style.display='block';
 }
 function clearAuthMessage(){const box=$('authMessage');if(box){box.textContent='';box.style.display='none';}}
 function showAuthMode(mode){
  const login=mode==='login';
- $('loginForm').classList.toggle('hidden',!login);
- $('registerForm').classList.toggle('hidden',login);
- $('showLogin').classList.toggle('active',login);
- $('showRegister').classList.toggle('active',!login);
+ $('loginForm').classList.toggle('hidden',!login);$('registerForm').classList.toggle('hidden',login);
+ $('showLogin').classList.toggle('active',login);$('showRegister').classList.toggle('active',!login);
  $('authTitle').textContent=login?'Welcome back':'Create your account';
  $('authSubtitle').textContent=login?'Log in to continue to your store dashboard.':'Register to get access to StockFlow.';
  clearAuthMessage();
@@ -233,81 +232,59 @@ $('loginToRegister').addEventListener('click',()=>showAuthMode('register'));
 $('registerToLogin').addEventListener('click',()=>showAuthMode('login'));
 
 function openApp(user){
- applyStoreName();
- $('authScreen').classList.add('hidden');
- $('appShell').style.display='flex';
- currentRole=user.role==='owner'?'owner':'cashier';
- document.body.classList.toggle('cashier-mode',currentRole==='cashier');
- const displayName=user.name||'User';
- $('profileName').textContent=displayName;
- $('profileRole').textContent=currentRole==='owner'?'Owner account':'Cashier account';
- $('welcomeName').textContent=displayName.split(' ')[0];
- $('signedInName').textContent=displayName;
+ applyStoreName();$('authScreen').classList.add('hidden');$('appShell').style.display='flex';
+ currentRole=user.role==='owner'?'owner':'cashier';document.body.classList.toggle('cashier-mode',currentRole==='cashier');
+ const displayName=user.name||'User';$('profileName').textContent=displayName;$('profileRole').textContent=currentRole==='owner'?'Owner account':'Cashier account';
+ $('welcomeName').textContent=displayName.split(' ')[0];$('signedInName').textContent=displayName;
  const initials=displayName.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
- document.querySelector('.avatar').textContent=initials;
- document.querySelector('.top-avatar').textContent=initials;
+ document.querySelector('.avatar').textContent=initials;document.querySelector('.top-avatar').textContent=initials;
  $('topAlertBtn').style.display=currentRole==='owner'?'':'none';
  document.querySelectorAll('.owner-only').forEach(el=>el.style.display=currentRole==='owner'?'':'none');
  document.querySelectorAll('.nav-link').forEach(el=>el.style.display='');
  if(currentRole==='cashier'){
-   document.querySelectorAll('[data-page="users"],[data-page="reports"],[data-page="history"],[data-page="alerts"]').forEach(el=>el.style.display='none');
-   navigate('pos');
- }else{
-   navigate('dashboard');
- }
+  document.querySelectorAll('[data-page="users"],[data-page="reports"],[data-page="history"],[data-page="alerts"]').forEach(el=>el.style.display='none');
+  navigate('pos');
+ }else navigate('dashboard');
  renderAll();
 }
 function logout(){
- localStorage.removeItem(AUTH_SESSION_KEY);
- stopScanner();
- cart=[];
- $('appShell').style.display='none';
- $('authScreen').classList.remove('hidden');
- $('loginPassword').value='';
- showAuthMode('login');
- $('showRegister').style.display='';$('loginToRegister').style.display='';
+ try{localStorage.removeItem(AUTH_SESSION_KEY);}catch(error){}
+ stopScanner();cart=[];$('appShell').style.display='none';$('authScreen').classList.remove('hidden');
+ $('loginPassword').value='';showAuthMode('login');
 }
 $('loginForm').addEventListener('submit',e=>{
- e.preventDefault(); clearAuthMessage();
- const email=$('loginEmail').value.trim().toLowerCase();
- const password=$('loginPassword').value;
- const user=getUsers().find(u=>String(u.email||'').trim().toLowerCase()===email && String(u.password??'')===password);
- if(!user){showAuthMessage('Hindi makita ang account. Tingnan ang email at password, o mag-register muna.');return;}
- try { localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({email:user.email})); }
- catch(error){showAuthMessage('Hindi ma-save ang login session. I-enable ang browser storage at subukan ulit.');return;}
- $('loginForm').reset();
- openApp(user);
+ e.preventDefault();clearAuthMessage();
+ const email=$('loginEmail').value.trim().toLowerCase(),password=$('loginPassword').value;
+ if(!email||!password){showAuthMessage('Ilagay ang email at password.');return;}
+ const user=getUsers().find(u=>String(u.email||'').trim().toLowerCase()===email&&String(u.password??'')===password);
+ if(!user){showAuthMessage('Hindi makapasok: mali ang email o password, o wala pang account. I-check ang spelling o mag-register.');return;}
+ if(!safeStorageSet(AUTH_SESSION_KEY,JSON.stringify({email:user.email}))){showAuthMessage('Hindi ma-save ang login session. I-enable ang cookies/site data sa browser at subukan ulit.');return;}
+ $('loginForm').reset();openApp(user);
 });
 $('registerForm').addEventListener('submit',e=>{
- e.preventDefault(); clearAuthMessage();
- const name=$('registerName').value.trim();
- const email=$('registerEmail').value.trim().toLowerCase();
- const password=$('registerPassword').value;
- const confirm=$('confirmPassword').value;
+ e.preventDefault();clearAuthMessage();
+ const name=$('registerName').value.trim(),email=$('registerEmail').value.trim().toLowerCase();
+ const password=$('registerPassword').value,confirm=$('confirmPassword').value;
  if(name.length<2){showAuthMessage('Ilagay ang buong pangalan (minimum 2 characters).');$('registerName').focus();return;}
- if(!email || !$('registerEmail').checkValidity()){showAuthMessage('Maglagay ng valid na email address.');$('registerEmail').focus();return;}
+ if(!email||!$('registerEmail').checkValidity()){showAuthMessage('Maglagay ng valid na email address.');$('registerEmail').focus();return;}
  if(password.length<6){showAuthMessage('Ang password ay dapat may hindi bababa sa 6 characters.');$('registerPassword').focus();return;}
  if(password!==confirm){showAuthMessage('Hindi magkapareho ang password at confirmation.');$('confirmPassword').focus();return;}
  const users=getUsers();
- if(users.some(u=>String(u.email||'').trim().toLowerCase()===email)){showAuthMessage('Ginagamit na ang email na ito. Gumamit ng ibang email o mag-log in.');$('registerEmail').focus();return;}
- const user={name,email,password,role:users.length===0?'owner':'cashier',createdAt:new Date().toISOString()};
- try {
-  users.push(user);
-  if(!saveUsers(users)) { showAuthMessage('Hindi ma-save ang account. I-enable ang browser storage at subukan ulit.'); return; }
-  localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({email}));
- } catch(error){showAuthMessage('Hindi ma-save ang account. Baka puno o naka-block ang browser storage. Subukan sa normal browser window.');return;}
- $('registerForm').reset();
- openApp(user);
+ if(users.some(u=>String(u.email||'').trim().toLowerCase()===email)){showAuthMessage('Ginagamit na ang email na ito. Mag-log in gamit ang account na iyon.');$('registerEmail').focus();return;}
+ // If a previous build left cashier-only records, the first valid Owner is still created.
+ const hasOwner=users.some(u=>u.role==='owner');
+ const user={name,email,password,role:hasOwner?'cashier':'owner',createdAt:new Date().toISOString()};
+ users.push(user);
+ if(!saveUsers(users)){showAuthMessage('Hindi ma-save ang account. I-enable ang browser cookies/site data at subukan sa normal browser window.');return;}
+ if(!safeStorageSet(AUTH_SESSION_KEY,JSON.stringify({email:user.email}))){showAuthMessage('Nagawa ang account pero hindi ma-save ang login session. Bumalik sa Log in at gamitin ang bagong email at password.','success');showAuthMode('login');$('loginEmail').value=email;return;}
+ $('registerForm').reset();openApp(user);
 });
 (function restoreSession(){
  $('appShell').style.display='none';
- let session=null;
- try{session=readStorageJSON(AUTH_SESSION_KEY,null);}catch(error){session=null;}
+ let session=null;try{const raw=safeStorageGet(AUTH_SESSION_KEY);session=raw?JSON.parse(raw):null;}catch(error){session=null;}
  const user=session&&getUsers().find(u=>String(u.email||'').trim().toLowerCase()===String(session.email||'').trim().toLowerCase());
- if(user)openApp(user);
- else{$('authScreen').classList.remove('hidden');showAuthMode('login');}
+ if(user)openApp(user);else{$('authScreen').classList.remove('hidden');showAuthMode('login');}
 })();
-
 
 // Owner-managed cashier accounts. Cashiers use these same credentials on the login screen.
 function renderCashierAccounts(){
@@ -343,9 +320,10 @@ $('cashierForm')?.addEventListener('submit',e=>{
  if(password.length<6){toast('Password must be at least 6 characters.');return;}
  if(password!==confirm){toast('Passwords do not match.');return;}
  const users=getUsers();
- if(users.some(u=>u.email===email)){toast('This email already has an account.');return;}
+ if(!email || !$('cashierEmail').checkValidity()){toast('Enter a valid email address.');return;}
+ if(users.some(u=>String(u.email||'').trim().toLowerCase()===email)){toast('This email already has an account.');return;}
  users.push({name,email,password,role:'cashier',createdAt:new Date().toISOString()});
- saveUsers(users);
+ if(!saveUsers(users)){toast('Could not save cashier account. Check browser storage settings.');return;}
  $('cashierForm').reset();
  $('cashierFormWrap').classList.add('hidden');
  renderCashierAccounts();

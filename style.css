@@ -195,3 +195,6 @@ input,select{font-size:16px}
 
 /* Clear, visible feedback for login and registration while auth overlay is open */
 .auth-message{display:none;margin:0 0 14px;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.45;font-weight:600}.auth-message.error{display:block;background:#fff0f0;color:#b42318;border:1px solid #ffd5d2}.auth-message.success{display:block;background:#ecfdf3;color:#067647;border:1px solid #abefc6}.auth-screen .auth-card{max-height:calc(100dvh - 32px);overflow-y:auto}
+
+/* Keep the dashboard hidden until a valid login or registration succeeds. */
+#appShell{display:none}
