@@ -3,14 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#6658e8">\n  <title>StockFlow | Inventory & POS</title>
+  <meta name="theme-color" content="#6658e8">
+  <title>StockFlow | Inventory & POS</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="app-shell">
+
+  <section class="auth-screen" id="authScreen">
+    <div class="auth-decoration auth-decoration-one"></div><div class="auth-decoration auth-decoration-two"></div>
+    <div class="auth-card">
+      <div class="auth-brand"><div class="brand-mark">S</div><div><strong>StockFlow</strong><small>INVENTORY SYSTEM</small></div></div>
+      <div class="auth-intro"><p class="eyebrow">WELCOME TO STOCKFLOW</p><h1 id="authTitle">Welcome back</h1><p id="authSubtitle">Log in to continue to your store dashboard.</p></div>
+      <div class="auth-tabs"><button class="auth-tab active" id="showLogin" type="button">Log in</button><button class="auth-tab" id="showRegister" type="button">Register</button></div>
+      <form id="loginForm" class="auth-form">
+        <label>Email address<input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="username" required></label>
+        <label>Password<input id="loginPassword" type="password" placeholder="Enter your password" autocomplete="current-password" required></label>
+        <button class="primary-btn auth-submit" type="submit">Log in <span>→</span></button>
+        <p class="auth-switch-copy">Don't have an account? <button type="button" id="loginToRegister">Register here</button></p>
+      </form>
+      <form id="registerForm" class="auth-form hidden">
+        <label>Full name<input id="registerName" type="text" placeholder="Your full name" autocomplete="name" required minlength="2"></label>
+        <label>Email address<input id="registerEmail" type="email" placeholder="you@example.com" autocomplete="email" required></label>
+        <label>Password<input id="registerPassword" type="password" placeholder="At least 6 characters" autocomplete="new-password" minlength="6" required></label>
+        <label>Confirm password<input id="confirmPassword" type="password" placeholder="Re-enter your password" autocomplete="new-password" minlength="6" required></label>
+        <button class="primary-btn auth-submit" type="submit">Create account <span>→</span></button>
+        <p class="auth-switch-copy">Already registered? <button type="button" id="registerToLogin">Log in</button></p>
+      </form>
+      <p class="auth-footnote">Demo version · Account data is stored in this browser only.</p>
+    </div>
+  </section>
+
+  <div class="app-shell" id="appShell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">S</div>
@@ -20,7 +46,7 @@
 
       <div class="store-switch">
         <div class="store-icon">⌂</div>
-        <div class="store-copy"><strong>My Store</strong><small>Retail branch</small></div>
+        <div class="store-copy"><strong id="storeNameDisplay">My Store</strong><small>Retail branch</small></div>
         <span class="chevron">⌄</span>
       </div>
 
@@ -54,9 +80,7 @@
         <div class="mobile-brand"><button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open navigation" aria-expanded="false">☰</button><div class="brand-mark">S</div><strong>StockFlow</strong></div>
         <div class="breadcrumb"><span>Workspace</span><b>/</b><strong id="breadcrumbPage">Dashboard</strong></div>
         <div class="top-actions">
-          <label class="role-select-label">View as
-            <select id="roleSelect" aria-label="Select demo role"><option value="owner">Owner</option><option value="cashier">Cashier</option></select>
-          </label>
+          <div class="signed-in-label"><span class="signed-in-dot"></span><span id="signedInName">Signed in</span></div>
           <button class="top-icon" id="topAlertBtn" title="View alerts">♧<i id="topAlertDot"></i></button>
           <div class="top-avatar">AD</div>
         </div>
@@ -108,8 +132,27 @@
 
         <section class="page" id="page-users">
           <div class="page-heading"><div><p class="eyebrow">ACCESS CONTROL</p><h1>Users & Roles</h1><p class="subheading">Manage what each account can access.</p></div></div>
-          <div class="role-cards"><article class="panel role-card"><div class="role-symbol owner-symbol">♔</div><h3>Owner</h3><p>Full access to the inventory and store management tools.</p><ul><li>Manage products and stock</li><li>View reports and history</li><li>Manage users and roles</li><li>Process sales</li></ul><span class="role-badge">Full access</span></article><article class="panel role-card"><div class="role-symbol cashier-symbol">♙</div><h3>Cashier</h3><p>Access to sales tools and product lookup.</p><ul><li>Use Point of Sale</li><li>Scan product barcodes</li><li>View product availability</li><li>No product deletion or user management</li></ul><span class="role-badge cashier-badge">Limited access</span></article></div>
-          <div class="panel demo-note"><strong>Demo role switcher</strong><p>Use the “View as” dropdown in the top bar to preview Owner and Cashier permissions. This is a front-end demonstration, not secure authentication.</p></div>
+          <article class="panel store-settings-panel">
+            <div class="panel-heading"><div><h3>My Store</h3><p>Edit the name displayed in your store workspace.</p></div><span class="store-settings-icon">⌂</span></div>
+            <form id="storeNameForm" class="store-name-form">
+              <label for="storeNameInput">Store name</label>
+              <div class="store-name-controls"><input id="storeNameInput" type="text" maxlength="60" required placeholder="Enter your store name"><button class="primary-btn" type="submit">Save store name</button></div>
+              <small class="store-settings-hint">The updated name will appear in the sidebar for the Owner and all Cashier accounts on this browser.</small>
+            </form>
+          </article>
+          <div class="role-cards"><article class="panel role-card"><div class="role-symbol owner-symbol">♔</div><h3>Owner</h3><p>Full access to inventory and store management.</p><ul><li>Manage products and stock</li><li>View reports and history</li><li>Add and manage cashier accounts</li><li>Process sales</li></ul><span class="role-badge">Full access</span></article><article class="panel role-card"><div class="role-symbol cashier-symbol">♙</div><h3>Cashier</h3><p>Access to sales tools and product lookup.</p><ul><li>Log in using an account created by the owner</li><li>Use Point of Sale</li><li>Scan product barcodes</li><li>No user management or product deletion</li></ul><span class="role-badge cashier-badge">Limited access</span></article></div>
+          <article class="panel cashier-manager">
+            <div class="cashier-manager-head"><div><h3>Cashier Accounts</h3><p class="subheading">Create login accounts for your staff.</p></div><button class="primary-btn" id="addCashierBtn">＋ Add Cashier</button></div>
+            <div class="cashier-form hidden" id="cashierFormWrap">
+              <form id="cashierForm">
+                <div class="form-row"><label>Cashier full name<input id="cashierName" required minlength="2" placeholder="e.g. Juan Dela Cruz"></label><label>Email address<input id="cashierEmail" type="email" required placeholder="cashier@example.com"></label></div>
+                <div class="form-row"><label>Temporary password<input id="cashierPassword" type="password" required minlength="6" placeholder="At least 6 characters"></label><label>Confirm password<input id="cashierConfirm" type="password" required minlength="6" placeholder="Re-enter password"></label></div>
+                <div class="cashier-form-actions"><button type="button" class="secondary-btn" id="cancelCashierBtn">Cancel</button><button type="submit" class="primary-btn">Create cashier account</button></div>
+              </form>
+            </div>
+            <div class="table-wrap cashier-table-wrap"><table><thead><tr><th>NAME</th><th>EMAIL / USERNAME</th><th>ROLE</th><th>STATUS</th></tr></thead><tbody id="cashierTable"></tbody></table></div>
+            <div class="empty-state" id="cashierEmpty">No cashier accounts yet. Add your first cashier above.</div>
+          </article>
         </section>
 
         <section class="page" id="page-reports">

@@ -37,6 +37,7 @@ function navigate(page){
  const names={dashboard:'Dashboard',inventory:'Inventory',pos:'Point of Sale',scanner:'Barcode Scanner',history:'Inventory History',alerts:'Alerts & Notifications',users:'Users & Roles',reports:'Reports'};
  $('breadcrumbPage').textContent=names[page]||page;
  if(page==='scanner' && scannerStream) stopScanner();
+ if(page==='users')renderCashierAccounts();
  renderAll();
  if(window.innerWidth<=760){$('sidebar').classList.remove('mobile-open');$('sidebarBackdrop')?.classList.remove('show');$('mobileMenuBtn')?.setAttribute('aria-expanded','false');}
 }
@@ -45,7 +46,7 @@ document.querySelectorAll('[data-go]').forEach(btn=>btn.addEventListener('click'
 $('collapseBtn').addEventListener('click',()=>{if(innerWidth<=760)$('sidebar').classList.toggle('mobile-open');else{$('sidebar').classList.toggle('collapsed');document.querySelector('.main-area').classList.toggle('expanded');}});
 $('topAlertBtn').addEventListener('click',()=>navigate('alerts'));
 $('helpBtn').addEventListener('click',()=>toast('Tip: Add products in Inventory, then sell them in Point of Sale.'));
-$('logoutBtn').addEventListener('click',()=>toast('Demo mode: no real account is signed in.'));
+$('logoutBtn').addEventListener('click',logout);
 
 function setRole(role){
  currentRole=role;document.body.classList.toggle('cashier-mode',role==='cashier');
@@ -57,7 +58,7 @@ function setRole(role){
  if(role==='cashier' && ['users','reports','history','alerts'].includes(document.querySelector('.page.active-page')?.id.replace('page-','')))navigate('pos');
  renderAll();
 }
-$('roleSelect').addEventListener('change',e=>setRole(e.target.value));
+
 
 function renderDashboard(){
  $('statProducts').textContent=products.length;
@@ -179,3 +180,149 @@ mobileMenuBtn?.addEventListener('click',()=>setMobileMenu(!$('sidebar').classLis
 sidebarBackdrop?.addEventListener('click',()=>setMobileMenu(false));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){setMobileMenu(false);$('productModal').classList.remove('show');}});
 window.addEventListener('resize',()=>{if(window.innerWidth>760)setMobileMenu(false);});
+
+
+// Simple browser-only demo authentication. For production, use server-side
+// authentication (e.g. PHP + MySQL) and never store passwords in localStorage.
+const AUTH_USERS_KEY = 'sf_demo_users';
+const AUTH_SESSION_KEY = 'sf_demo_session';
+function getUsers(){try{return JSON.parse(localStorage.getItem(AUTH_USERS_KEY)||'[]')}catch{return []}}
+function saveUsers(users){localStorage.setItem(AUTH_USERS_KEY,JSON.stringify(users))}
+function showAuthMode(mode){
+ const login=mode==='login';
+ $('loginForm').classList.toggle('hidden',!login);
+ $('registerForm').classList.toggle('hidden',login);
+ $('showLogin').classList.toggle('active',login);
+ $('showRegister').classList.toggle('active',!login);
+ $('authTitle').textContent=login?'Welcome back':'Create your account';
+ $('authSubtitle').textContent=login?'Log in to continue to your store dashboard.':'Register to get access to StockFlow.';
+}
+$('showLogin').addEventListener('click',()=>showAuthMode('login'));
+$('showRegister').addEventListener('click',()=>{if(getUsers().length===0)showAuthMode('register');});
+$('loginToRegister').addEventListener('click',()=>{if(getUsers().length===0)showAuthMode('register');});
+$('registerToLogin').addEventListener('click',()=>showAuthMode('login'));
+
+function openApp(user){
+ applyStoreName();
+ $('authScreen').classList.add('hidden');
+ $('appShell').style.display='flex';
+ currentRole=user.role==='owner'?'owner':'cashier';
+ document.body.classList.toggle('cashier-mode',currentRole==='cashier');
+ const displayName=user.name||'User';
+ $('profileName').textContent=displayName;
+ $('profileRole').textContent=currentRole==='owner'?'Owner account':'Cashier account';
+ $('welcomeName').textContent=displayName.split(' ')[0];
+ $('signedInName').textContent=displayName;
+ const initials=displayName.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+ document.querySelector('.avatar').textContent=initials;
+ document.querySelector('.top-avatar').textContent=initials;
+ $('topAlertBtn').style.display=currentRole==='owner'?'':'none';
+ document.querySelectorAll('.owner-only').forEach(el=>el.style.display=currentRole==='owner'?'':'none');
+ if(currentRole==='cashier'){
+   document.querySelectorAll('[data-page="users"],[data-page="reports"],[data-page="history"],[data-page="alerts"]').forEach(el=>el.style.display='none');
+   navigate('pos');
+ }else{
+   document.querySelectorAll('.nav-link').forEach(el=>el.style.display='');
+   navigate('dashboard');
+ }
+ renderAll();
+}
+function logout(){
+ localStorage.removeItem(AUTH_SESSION_KEY);
+ stopScanner();
+ cart=[];
+ $('appShell').style.display='none';
+ $('authScreen').classList.remove('hidden');
+ $('loginPassword').value='';
+ showAuthMode('login');
+ const firstSetup=getUsers().length===0;$('showRegister').style.display=firstSetup?'':'none';$('loginToRegister').style.display=firstSetup?'':'none';
+}
+$('loginForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const email=$('loginEmail').value.trim().toLowerCase();
+ const password=$('loginPassword').value;
+ const user=getUsers().find(u=>u.email===email&&u.password===password);
+ if(!user){toast('Incorrect email or password.');return;}
+ localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({email:user.email}));
+ openApp(user);
+});
+$('registerForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const name=$('registerName').value.trim();
+ const email=$('registerEmail').value.trim().toLowerCase();
+ const password=$('registerPassword').value;
+ const confirm=$('confirmPassword').value;
+ if(password.length<6){toast('Password must be at least 6 characters.');return;}
+ if(password!==confirm){toast('Passwords do not match.');return;}
+ const users=getUsers();
+ if(users.some(u=>u.email===email)){toast('That email is already registered.');return;}
+ const user={name,email,password,role:users.length===0?'owner':'cashier'};
+ users.push(user);saveUsers(users);
+ localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({email}));
+ $('registerForm').reset();
+ toast(user.role==='owner'?'Owner account created successfully.':'Cashier account created successfully.');
+ openApp(user);
+});
+(function restoreSession(){
+ $('appShell').style.display='none';
+ const session=JSON.parse(localStorage.getItem(AUTH_SESSION_KEY)||'null');
+ const user=session&&getUsers().find(u=>u.email===session.email);
+ if(user)openApp(user);
+ else{$('authScreen').classList.remove('hidden');showAuthMode('login');const firstSetup=getUsers().length===0;$('showRegister').style.display=firstSetup?'':'none';$('loginToRegister').style.display=firstSetup?'':'none';}
+})();
+
+
+// Owner-managed cashier accounts. Cashiers use these same credentials on the login screen.
+function renderCashierAccounts(){
+ const rows=getUsers().filter(u=>u.role==='cashier');
+ $('cashierTable').innerHTML=rows.map(u=>`<tr><td class="table-product">${escapeHTML(u.name)}</td><td>${escapeHTML(u.email)}</td><td>Cashier</td><td><span class="cashier-status">Active</span></td></tr>`).join('');
+ $('cashierEmpty').classList.toggle('hidden',rows.length>0);
+}
+$('addCashierBtn')?.addEventListener('click',()=>{
+ $('cashierFormWrap').classList.toggle('hidden');
+ if(!$('cashierFormWrap').classList.contains('hidden'))$('cashierName').focus();
+});
+$('cancelCashierBtn')?.addEventListener('click',()=>{
+ $('cashierForm').reset();$('cashierFormWrap').classList.add('hidden');
+});
+$('cashierForm')?.addEventListener('submit',e=>{
+ e.preventDefault();
+ if(currentRole!=='owner'){toast('Only the owner can add cashier accounts.');return;}
+ const name=$('cashierName').value.trim();
+ const email=$('cashierEmail').value.trim().toLowerCase();
+ const password=$('cashierPassword').value;
+ const confirm=$('cashierConfirm').value;
+ if(password.length<6){toast('Password must be at least 6 characters.');return;}
+ if(password!==confirm){toast('Passwords do not match.');return;}
+ const users=getUsers();
+ if(users.some(u=>u.email===email)){toast('This email already has an account.');return;}
+ users.push({name,email,password,role:'cashier'});
+ saveUsers(users);
+ $('cashierForm').reset();
+ $('cashierFormWrap').classList.add('hidden');
+ renderCashierAccounts();
+ toast('Cashier account created. They can now log in with this email and password.');
+});
+
+
+// Store name is shared by Owner and cashier sessions in this browser.
+const STORE_NAME_KEY='sf_store_name';
+function getStoreName(){return (localStorage.getItem(STORE_NAME_KEY)||'My Store').trim()||'My Store';}
+function applyStoreName(){
+ const name=getStoreName();
+ const display=$('storeNameDisplay');
+ if(display)display.textContent=name;
+ const input=$('storeNameInput');
+ if(input && document.activeElement!==input)input.value=name;
+ document.title=`${name} | StockFlow Inventory System`;
+}
+$('storeNameForm')?.addEventListener('submit',e=>{
+ e.preventDefault();
+ if(currentRole!=='owner'){toast('Only the owner can edit the store name.');return;}
+ const name=$('storeNameInput').value.trim();
+ if(!name){toast('Please enter a store name.');return;}
+ localStorage.setItem(STORE_NAME_KEY,name);
+ applyStoreName();
+ toast('Store name updated successfully.');
+});
+applyStoreName();
