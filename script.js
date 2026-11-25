@@ -198,8 +198,8 @@ function showAuthMode(mode){
  $('authSubtitle').textContent=login?'Log in to continue to your store dashboard.':'Register to get access to StockFlow.';
 }
 $('showLogin').addEventListener('click',()=>showAuthMode('login'));
-$('showRegister').addEventListener('click',()=>{if(getUsers().length===0)showAuthMode('register');});
-$('loginToRegister').addEventListener('click',()=>{if(getUsers().length===0)showAuthMode('register');});
+$('showRegister').addEventListener('click',()=>showAuthMode('register'));
+$('loginToRegister').addEventListener('click',()=>showAuthMode('register'));
 $('registerToLogin').addEventListener('click',()=>showAuthMode('login'));
 
 function openApp(user){
@@ -235,7 +235,7 @@ function logout(){
  $('authScreen').classList.remove('hidden');
  $('loginPassword').value='';
  showAuthMode('login');
- const firstSetup=getUsers().length===0;$('showRegister').style.display=firstSetup?'':'none';$('loginToRegister').style.display=firstSetup?'':'none';
+ $('showRegister').style.display='';$('loginToRegister').style.display='';
 }
 $('loginForm').addEventListener('submit',e=>{
  e.preventDefault();
@@ -269,7 +269,7 @@ $('registerForm').addEventListener('submit',e=>{
  const session=JSON.parse(localStorage.getItem(AUTH_SESSION_KEY)||'null');
  const user=session&&getUsers().find(u=>u.email===session.email);
  if(user)openApp(user);
- else{$('authScreen').classList.remove('hidden');showAuthMode('login');const firstSetup=getUsers().length===0;$('showRegister').style.display=firstSetup?'':'none';$('loginToRegister').style.display=firstSetup?'':'none';}
+ else{$('authScreen').classList.remove('hidden');$('showRegister').style.display='';$('loginToRegister').style.display='';showAuthMode('login');}
 })();
 
 
