@@ -38,7 +38,7 @@ function navigate(page){
  $('breadcrumbPage').textContent=names[page]||page;
  if(page==='scanner' && scannerStream) stopScanner();
  renderAll();
- if(window.innerWidth<=760)$('sidebar').classList.remove('mobile-open');
+ if(window.innerWidth<=760){$('sidebar').classList.remove('mobile-open');$('sidebarBackdrop')?.classList.remove('show');$('mobileMenuBtn')?.setAttribute('aria-expanded','false');}
 }
 document.querySelectorAll('.nav-link').forEach(btn=>btn.addEventListener('click',()=>navigate(btn.dataset.page)));
 document.querySelectorAll('[data-go]').forEach(btn=>btn.addEventListener('click',()=>navigate(btn.dataset.go)));
@@ -164,3 +164,18 @@ $('startScanBtn').addEventListener('click',startScanner);$('stopScanBtn').addEve
 
 $('todayDate').textContent=new Date().toLocaleDateString('en-PH',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
 renderAll();
+
+
+// Mobile drawer controls: the menu button is always available on phones.
+const mobileMenuBtn = $('mobileMenuBtn');
+const sidebarBackdrop = $('sidebarBackdrop');
+function setMobileMenu(open){
+  $('sidebar').classList.toggle('mobile-open', open);
+  sidebarBackdrop.classList.toggle('show', open);
+  mobileMenuBtn?.setAttribute('aria-expanded', String(open));
+  mobileMenuBtn?.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+}
+mobileMenuBtn?.addEventListener('click',()=>setMobileMenu(!$('sidebar').classList.contains('mobile-open')));
+sidebarBackdrop?.addEventListener('click',()=>setMobileMenu(false));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){setMobileMenu(false);$('productModal').classList.remove('show');}});
+window.addEventListener('resize',()=>{if(window.innerWidth>760)setMobileMenu(false);});
