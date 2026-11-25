@@ -218,11 +218,11 @@ function openApp(user){
  document.querySelector('.top-avatar').textContent=initials;
  $('topAlertBtn').style.display=currentRole==='owner'?'':'none';
  document.querySelectorAll('.owner-only').forEach(el=>el.style.display=currentRole==='owner'?'':'none');
+ document.querySelectorAll('.nav-link').forEach(el=>el.style.display='');
  if(currentRole==='cashier'){
    document.querySelectorAll('[data-page="users"],[data-page="reports"],[data-page="history"],[data-page="alerts"]').forEach(el=>el.style.display='none');
    navigate('pos');
  }else{
-   document.querySelectorAll('.nav-link').forEach(el=>el.style.display='');
    navigate('dashboard');
  }
  renderAll();
@@ -241,9 +241,10 @@ $('loginForm').addEventListener('submit',e=>{
  e.preventDefault();
  const email=$('loginEmail').value.trim().toLowerCase();
  const password=$('loginPassword').value;
- const user=getUsers().find(u=>u.email===email&&u.password===password);
- if(!user){toast('Incorrect email or password.');return;}
+ const user=getUsers().find(u=>String(u.email||'').trim().toLowerCase()===email && u.password===password);
+ if(!user){toast('Account not found. Check the email and password created by the Owner.');return;}
  localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({email:user.email}));
+ $('loginForm').reset();
  openApp(user);
 });
 $('registerForm').addEventListener('submit',e=>{
@@ -275,8 +276,19 @@ $('registerForm').addEventListener('submit',e=>{
 // Owner-managed cashier accounts. Cashiers use these same credentials on the login screen.
 function renderCashierAccounts(){
  const rows=getUsers().filter(u=>u.role==='cashier');
- $('cashierTable').innerHTML=rows.map(u=>`<tr><td class="table-product">${escapeHTML(u.name)}</td><td>${escapeHTML(u.email)}</td><td>Cashier</td><td><span class="cashier-status">Active</span></td></tr>`).join('');
+ $('cashierTable').innerHTML=rows.map(u=>`<tr><td class="table-product">${escapeHTML(u.name)}</td><td>${escapeHTML(u.email)}</td><td>Cashier</td><td><span class="cashier-status">Active</span></td><td><button type="button" class="delete-btn" data-remove-cashier="${escapeHTML(u.email)}">Remove</button></td></tr>`).join('');
  $('cashierEmpty').classList.toggle('hidden',rows.length>0);
+ $('cashierTable').querySelectorAll('[data-remove-cashier]').forEach(button=>button.addEventListener('click',()=>removeCashier(button.dataset.removeCashier)));
+}
+function removeCashier(email){
+ if(currentRole!=='owner'){toast('Only the owner can remove cashier accounts.');return;}
+ const users=getUsers();
+ const cashier=users.find(u=>u.role==='cashier'&&String(u.email).trim().toLowerCase()===String(email).trim().toLowerCase());
+ if(!cashier)return toast('Cashier account not found.');
+ if(!confirm(`Remove cashier account for ${cashier.name} (${cashier.email})? This account will no longer be able to log in.`))return;
+ saveUsers(users.filter(u=>!(u.role==='cashier'&&String(u.email).trim().toLowerCase()===String(email).trim().toLowerCase())));
+ renderCashierAccounts();
+ toast('Cashier account removed.');
 }
 $('addCashierBtn')?.addEventListener('click',()=>{
  $('cashierFormWrap').classList.toggle('hidden');
@@ -296,7 +308,7 @@ $('cashierForm')?.addEventListener('submit',e=>{
  if(password!==confirm){toast('Passwords do not match.');return;}
  const users=getUsers();
  if(users.some(u=>u.email===email)){toast('This email already has an account.');return;}
- users.push({name,email,password,role:'cashier'});
+ users.push({name,email,password,role:'cashier',createdAt:new Date().toISOString()});
  saveUsers(users);
  $('cashierForm').reset();
  $('cashierFormWrap').classList.add('hidden');
